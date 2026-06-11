@@ -2,48 +2,70 @@
 
 import json
 import os
-from collections import deque
+import heapq
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from mesh import Mesh
 
 PORT = 6767
 
+
+def dijkstra(m, weight, src, dst):
+    #lowest-total-weight path from src to dst.
+    #returns (path_list, total_weight) or (None, None) if unreachable.
+    if src == dst:
+        return [src], 0
+    dist = {src: 0}
+    prev = {}
+    pq = [(0, src)]
+    visited = set()
+    while pq:
+        d, u = heapq.heappop(pq)
+        if u in visited:
+            continue
+        visited.add(u)
+        if u == dst:
+            break
+        for v in m.graph.get(u, []):
+            nd = d + weight[(u, v)]
+            if v not in dist or nd < dist[v]:
+                dist[v] = nd
+                prev[v] = u
+                heapq.heappush(pq, (nd, v))
+    if dst not in dist:
+        return None, None
+    path = [dst]
+    while path[-1] != src:
+        path.append(prev[path[-1]])
+    path.reverse()
+    return path, dist[dst]
+
+
 def connectivity(nodes, edges):
-    #build a fresh mesh from what the page sent (edges here are the UP ones)
+    #build fresh mesh from what the page sent (edges here are the UP ones)
     m = Mesh()
     for n in nodes:
         m.add_node(n)
+
+    weight = {}
     for e in edges:
         m.connect(e["a"], e["b"])
-
-    def path(a, b):
-        if a == b:
-            return [a]
-        q = deque([[a]])
-        seen = {a}
-        while q:
-            p = q.popleft()
-            for nb in m.graph.get(p[-1], []):
-                if nb == b:
-                    return p + [nb]
-                if nb not in seen:
-                    seen.add(nb)
-                    q.append(p + [nb])
-        return None
-
-    def direct(a, b):
-        return b in m.graph.get(a, [])
+        w = e.get("w", 1)
+        weight[(e["a"], e["b"])] = w
+        weight[(e["b"], e["a"])] = w
 
     ns = m.nodes()
     pairs = []
     for i in range(len(ns)):
         for j in range(i + 1, len(ns)):
             a, b = ns[i], ns[j]
+            path, total = dijkstra(m, weight, a, b)
+            reachable = path is not None
             pairs.append({
                 "a": a, "b": b,
-                "reachable": m.reachable(a, b),
-                "direct": direct(a, b),
-                "path": path(a, b),
+                "reachable": reachable,
+                "direct": reachable and len(path) == 2,
+                "path": path,
+                "weight": total if reachable else 0,
             })
     return pairs
 
@@ -81,4 +103,6 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    print(f"Mesh proof of concept running at http://localhost:{PORT}")
+    print("Press Ctrl+C to stop.")
     HTTPServer(("", PORT), Handler).serve_forever()
