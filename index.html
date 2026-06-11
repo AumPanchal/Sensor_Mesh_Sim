@@ -10,15 +10,12 @@
   h1 { font-size: 18px; margin: 0 0 4px; }
   p.sub { margin: 0 0 16px; color: #5a6472; font-size: 13px; }
   .bar { margin-bottom: 16px; display: flex; gap: 12px; align-items: center; }
-  #tray { width: 44px; height: 44px; border-radius: 50%; background: #1c2127;
-          color: #fff; display: flex; align-items: center; justify-content: center;
-          font-size: 22px; cursor: grab; user-select: none; }
   button { font: inherit; padding: 8px 16px; border: 1px solid #1c2127;
            background: #1c2127; color: #fff; border-radius: 5px; cursor: pointer; }
   button.secondary { background: #fff; color: #1c2127; }
   .wrap { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
   .panel { background: #fff; border: 1px solid #d8dce2; border-radius: 6px; padding: 16px; }
-  svg { display: block; background: #fff; border: 1px dashed #cfd4db; border-radius: 6px; }
+  svg { display: block; background: #fff; border: 1px dashed #cfd4db; border-radius: 6px; cursor: crosshair; }
   .edge-hit { stroke: transparent; stroke-width: 18; cursor: pointer; }
   .edge { stroke-width: 3; pointer-events: none; }
   .edge.up { stroke: #2e7d32; }
@@ -44,10 +41,9 @@
 </head>
 <body>
   <h1>Sensor Mesh Sim</h1>
-  <p class="sub">Drag node into the canvas to add to graph. Click one node then another to link. Click an edge to toggle it. Edit weights in edge status. Run Simulate.</p>
+  <p class="sub">Click empty space in the canvas to add a node. Click one node then another to link. Click an edge to toggle it. Edit weights in edge status. Run Simulate.</p>
 
   <div class="bar">
-    <div id="tray" draggable="true" title="Drag me into the canvas">+</div>
     <button id="sim">Simulate</button>
     <button id="reset" class="secondary">Reset</button>
   </div>
@@ -73,21 +69,17 @@
   const svg = document.getElementById("graph");
   const NS = "http://www.w3.org/2000/svg";
 
-  // Graph state
-  let nodes = {};       // id: [x, y]
-  let edges = [];       // {a, b, up, w}
-  let selected = null;  // active node
-  let nextCode = 65;    // char code 'A'
+  //State
+  let nodes = {};
+  let edges = [];
+  let selected = null;
+  let nextCode = 65;
 
   function nextId() { return String.fromCharCode(nextCode++); }
 
-  // Drag & drop
-  document.getElementById("tray").addEventListener("dragstart", e => {
-    e.dataTransfer.setData("text", "node");
-  });
-  svg.addEventListener("dragover", e => e.preventDefault());
-  svg.addEventListener("drop", e => {
-    e.preventDefault();
+  //Canvas click
+  svg.addEventListener("click", e => {
+    if (e.target !== svg) return; //Ignore elements
     const r = svg.getBoundingClientRect();
     addNode(e.clientX - r.left, e.clientY - r.top);
   });
@@ -98,7 +90,7 @@
     clearConn();
   }
 
-  // Connect nodes
+  //Link logic
   function clickNode(id) {
     if (selected === null) { selected = id; draw(); return; }
     if (selected === id) { selected = null; draw(); return; }
@@ -108,20 +100,20 @@
 
   function addEdge(a, b) {
     if (!edges.some(e => (e.a === a && e.b === b) || (e.a === b && e.b === a))) {
-      edges.push({ a, b, up: true, w: 1 });   // default: 1
+      edges.push({ a, b, up: true, w: 1 });
       clearConn();
     }
     draw();
   }
 
-  // Toggle link state
+  //Toggle edge
   function toggleEdge(e) {
     e.up = !e.up;
     draw();
     clearConn();
   }
 
-  // API call: Simulate
+  //Run sim
   document.getElementById("sim").addEventListener("click", async () => {
     const payload = {
       nodes: Object.keys(nodes),
@@ -160,6 +152,7 @@
     return ["connection lost", "down"];
   }
 
+  //Render
   function draw() {
     svg.innerHTML = "";
     edges.forEach(e => {
@@ -169,14 +162,18 @@
       line.setAttribute("x2", x2); line.setAttribute("y2", y2);
       line.setAttribute("class", "edge " + (e.up ? "up" : "down"));
       svg.appendChild(line);
+      
       const hit = document.createElementNS(NS, "line");
       hit.setAttribute("x1", x1); hit.setAttribute("y1", y1);
       hit.setAttribute("x2", x2); hit.setAttribute("y2", y2);
       hit.setAttribute("class", "edge-hit");
-      hit.addEventListener("click", () => toggleEdge(e));
+      hit.addEventListener("click", (evt) => { 
+        evt.stopPropagation(); //Block canvas click
+        toggleEdge(e); 
+      });
       svg.appendChild(hit);
       
-      // Midpoint weight label
+      //Weight label
       const wl = document.createElementNS(NS, "text");
       wl.setAttribute("x", (x1 + x2) / 2);
       wl.setAttribute("y", (y1 + y2) / 2 - 6);
@@ -184,13 +181,18 @@
       wl.textContent = e.w;
       svg.appendChild(wl);
     });
+    
     Object.keys(nodes).forEach(id => {
       const [x, y] = nodes[id];
       const c = document.createElementNS(NS, "circle");
       c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 22);
       c.setAttribute("class", "node" + (id === selected ? " sel" : ""));
-      c.addEventListener("click", () => clickNode(id));
+      c.addEventListener("click", (evt) => { 
+        evt.stopPropagation(); //Block canvas click
+        clickNode(id); 
+      });
       svg.appendChild(c);
+      
       const t = document.createElementNS(NS, "text");
       t.setAttribute("x", x); t.setAttribute("y", y);
       t.setAttribute("class", "node-label"); t.textContent = id;
