@@ -1,4 +1,4 @@
-#http://localhost:8000
+#http://localhost:6767
 
 import json
 import os
@@ -6,9 +6,9 @@ from collections import deque
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from mesh import Mesh
 
-PORT = 8000
+PORT = 6767
 
-# three fixed nodes, start fully connected
+#3 nodes start connected
 mesh = Mesh()
 for n in ("A", "B", "C"):
     mesh.add_node(n)
@@ -16,7 +16,7 @@ mesh.connect("A", "B")
 mesh.connect("B", "C")
 mesh.connect("A", "C")
 
-# the three possible links the UI can toggle
+#three possible links UI can toggle
 CANDIDATE_EDGES = [("A", "B"), ("B", "C"), ("A", "C")]
 
 
@@ -25,7 +25,7 @@ def edge_up(a, b):
 
 
 def find_path(a, b):
-    # display only: returns the actual route, e.g. ["A", "B", "C"], or None
+    #returns the actual route, ex. ["A", "B", "C"], or None
     if a == b:
         return [a]
     q = deque([[a]])
@@ -92,10 +92,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
 
     def log_message(self, *args):
-        pass  # keep the console quiet
+        pass
 
 
 if __name__ == "__main__":
-    print(f"Mesh proof of concept running at http://localhost:{PORT}")
-    print("Press Ctrl+C to stop.")
     HTTPServer(("", PORT), Handler).serve_forever()
