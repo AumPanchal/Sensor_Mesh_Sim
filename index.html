@@ -22,22 +22,21 @@
   .hint { font-size: 12px; color: #5a6472; margin-top: 8px; }
   h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em;
        color: #5a6472; margin: 0 0 10px; }
-  .conn { width: 260px; }
+  .col { width: 260px; }
   .row { display: flex; justify-content: space-between; padding: 6px 0;
          border-bottom: 1px solid #eef0f3; font-size: 14px; }
   .row:last-child { border-bottom: none; }
-  .status-ok { color: #2e7d32; }
-  .status-via { color: #1565c0; }
-  .status-lost { color: #c62828; }
-  .log { width: 260px; }
+  .up { color: #2e7d32; }
+  .down { color: #c62828; }
+  .via { color: #1565c0; }
   .log ul { list-style: none; margin: 0; padding: 0; font-size: 13px;
-            max-height: 180px; overflow-y: auto; }
+            max-height: 160px; overflow-y: auto; }
   .log li { padding: 4px 0; border-bottom: 1px solid #eef0f3; color: #333; }
 </style>
 </head>
 <body>
-  <h1>Sensor Mesh Sim</h1>
-  <p class="sub">Click edge to toggle on or off.</p>
+  <h1>Sensor Mesh - Proof of Concept</h1>
+  <p class="sub">Click a link to toggle it on or off. A node can still reach another through the mesh, even with no direct link.</p>
 
   <div class="wrap">
     <div class="panel">
@@ -45,24 +44,24 @@
       <div class="hint">Green = link up. Red dashed = link down.</div>
     </div>
 
-    <div class="panel conn">
+    <div class="panel col">
+      <h2>Link status</h2>
+      <div id="links"></div>
+    </div>
+
+    <div class="panel col">
       <h2>Connectivity</h2>
       <div id="conn"></div>
     </div>
 
-    <div class="panel log">
+    <div class="panel col log">
       <h2>Activity</h2>
       <ul id="log"></ul>
     </div>
   </div>
 
 <script>
-  // fixed positions for the three nodes
   const POS = { A: [180, 50], B: [60, 260], C: [300, 260] };
-
-  function midpoint(a, b) {
-    return [(POS[a][0] + POS[b][0]) / 2, (POS[a][1] + POS[b][1]) / 2];
-  }
 
   function log(msg) {
     const ul = document.getElementById("log");
@@ -72,31 +71,24 @@
   }
 
   function statusText(p) {
-    if (p.direct) return ["connected (direct)", "status-ok"];
-    if (p.reachable) {
-      const via = p.path.slice(1, -1).join(", ");
-      return ["connected (via " + via + ")", "status-via"];
-    }
-    return ["connection lost", "status-lost"];
+    if (p.direct) return ["connected (direct)", "up"];
+    if (p.reachable) return ["connected (via " + p.path.slice(1, -1).join(", ") + ")", "via"];
+    return ["connection lost", "down"];
   }
 
   function render(state) {
-    // draw graph
     const svg = document.getElementById("graph");
     svg.innerHTML = "";
     const NS = "http://www.w3.org/2000/svg";
 
-    // edges first, under the nodes
     state.edges.forEach(e => {
       const [x1, y1] = POS[e.a], [x2, y2] = POS[e.b];
-
       const visible = document.createElementNS(NS, "line");
       visible.setAttribute("x1", x1); visible.setAttribute("y1", y1);
       visible.setAttribute("x2", x2); visible.setAttribute("y2", y2);
       visible.setAttribute("class", "edge " + (e.up ? "up" : "down"));
       svg.appendChild(visible);
 
-      // a fat invisible line on top makes the edge easy to click
       const hit = document.createElementNS(NS, "line");
       hit.setAttribute("x1", x1); hit.setAttribute("y1", y1);
       hit.setAttribute("x2", x2); hit.setAttribute("y2", y2);
@@ -105,7 +97,6 @@
       svg.appendChild(hit);
     });
 
-    // nodes on top
     state.nodes.forEach(n => {
       const [x, y] = POS[n];
       const c = document.createElementNS(NS, "circle");
@@ -119,7 +110,20 @@
       svg.appendChild(t);
     });
 
-    // connectivity readout
+    //link status: every link, up or down
+    const links = document.getElementById("links");
+    links.innerHTML = "";
+    state.edges.forEach(e => {
+      const cls = e.up ? "up" : "down";
+      const word = e.up ? "up" : "down";
+      const row = document.createElement("div");
+      row.className = "row";
+      row.innerHTML = "<span>" + e.a + " &ndash; " + e.b + "</span>" +
+                      "<span class='" + cls + "'>" + word + "</span>";
+      links.appendChild(row);
+    });
+
+    //connectivity: can each pair reach each other through the mesh
     const conn = document.getElementById("conn");
     conn.innerHTML = "";
     state.pairs.forEach(p => {
