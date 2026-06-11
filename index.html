@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sensor Mesh - Proof of Concept</title>
+<title>Sensor Mesh Sim</title>
 <style>
   body { font-family: system-ui, sans-serif; margin: 0; padding: 24px;
          background: #f5f6f8; color: #1c2127; }
@@ -43,8 +43,8 @@
 </style>
 </head>
 <body>
-  <h1>Sensor Mesh - Proof of Concept</h1>
-  <p class="sub">Drag the node into the canvas to add it. Click one node then another to connect them. Click a link to toggle it. Edit weights in Link status. Then run Simulate.</p>
+  <h1>Sensor Mesh Sim</h1>
+  <p class="sub">Drag node into the canvas to add to graph. Click one node then another to link. Click an edge to toggle it. Edit weights in edge status. Run Simulate.</p>
 
   <div class="bar">
     <div id="tray" draggable="true" title="Drag me into the canvas">+</div>
@@ -59,12 +59,12 @@
     </div>
 
     <div class="panel col">
-      <h2>Link status</h2>
+      <h2>Edge status</h2>
       <div id="links"></div>
     </div>
 
     <div class="panel col">
-      <h2>Connectivity (after Simulate)</h2>
+      <h2>Connectivity</h2>
       <div id="conn"><div class="empty">Run Simulate to compute.</div></div>
     </div>
   </div>
