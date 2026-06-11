@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sensor Mesh - Proof of Concept</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 24px;
+         background: #f5f6f8; color: #1c2127; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.sub { margin: 0 0 20px; color: #5a6472; font-size: 13px; }
+  .wrap { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+  .panel { background: #fff; border: 1px solid #d8dce2; border-radius: 6px; padding: 16px; }
+  svg { display: block; }
+  .edge-hit { stroke: transparent; stroke-width: 18; cursor: pointer; }
+  .edge { stroke-width: 3; pointer-events: none; }
+  .edge.up { stroke: #2e7d32; }
+  .edge.down { stroke: #c62828; stroke-dasharray: 6 5; }
+  .node { fill: #1c2127; }
+  .node-label { fill: #fff; font-size: 14px; font-weight: 600;
+                text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  .hint { font-size: 12px; color: #5a6472; margin-top: 8px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em;
+       color: #5a6472; margin: 0 0 10px; }
+  .conn { width: 260px; }
+  .row { display: flex; justify-content: space-between; padding: 6px 0;
+         border-bottom: 1px solid #eef0f3; font-size: 14px; }
+  .row:last-child { border-bottom: none; }
+  .status-ok { color: #2e7d32; }
+  .status-via { color: #1565c0; }
+  .status-lost { color: #c62828; }
+  .log { width: 260px; }
+  .log ul { list-style: none; margin: 0; padding: 0; font-size: 13px;
+            max-height: 180px; overflow-y: auto; }
+  .log li { padding: 4px 0; border-bottom: 1px solid #eef0f3; color: #333; }
+</style>
+</head>
+<body>
+  <h1>Sensor Mesh Sim</h1>
+  <p class="sub">Click edge to toggle on or off.</p>
+
+  <div class="wrap">
+    <div class="panel">
+      <svg id="graph" width="360" height="320" viewBox="0 0 360 320"></svg>
+      <div class="hint">Green = link up. Red dashed = link down.</div>
+    </div>
+
+    <div class="panel conn">
+      <h2>Connectivity</h2>
+      <div id="conn"></div>
+    </div>
+
+    <div class="panel log">
+      <h2>Activity</h2>
+      <ul id="log"></ul>
+    </div>
+  </div>
+
+<script>
+  // fixed positions for the three nodes
+  const POS = { A: [180, 50], B: [60, 260], C: [300, 260] };
+
+  function midpoint(a, b) {
+    return [(POS[a][0] + POS[b][0]) / 2, (POS[a][1] + POS[b][1]) / 2];
+  }
+
+  function log(msg) {
+    const ul = document.getElementById("log");
+    const li = document.createElement("li");
+    li.textContent = msg;
+    ul.prepend(li);
+  }
+
+  function statusText(p) {
+    if (p.direct) return ["connected (direct)", "status-ok"];
+    if (p.reachable) {
+      const via = p.path.slice(1, -1).join(", ");
+      return ["connected (via " + via + ")", "status-via"];
+    }
+    return ["connection lost", "status-lost"];
+  }
+
+  function render(state) {
+    // draw graph
+    const svg = document.getElementById("graph");
+    svg.innerHTML = "";
+    const NS = "http://www.w3.org/2000/svg";
+
+    // edges first, under the nodes
+    state.edges.forEach(e => {
+      const [x1, y1] = POS[e.a], [x2, y2] = POS[e.b];
+
+      const visible = document.createElementNS(NS, "line");
+      visible.setAttribute("x1", x1); visible.setAttribute("y1", y1);
+      visible.setAttribute("x2", x2); visible.setAttribute("y2", y2);
+      visible.setAttribute("class", "edge " + (e.up ? "up" : "down"));
+      svg.appendChild(visible);
+
+      // a fat invisible line on top makes the edge easy to click
+      const hit = document.createElementNS(NS, "line");
+      hit.setAttribute("x1", x1); hit.setAttribute("y1", y1);
+      hit.setAttribute("x2", x2); hit.setAttribute("y2", y2);
+      hit.setAttribute("class", "edge-hit");
+      hit.addEventListener("click", () => toggle(e.a, e.b, e.up));
+      svg.appendChild(hit);
+    });
+
+    // nodes on top
+    state.nodes.forEach(n => {
+      const [x, y] = POS[n];
+      const c = document.createElementNS(NS, "circle");
+      c.setAttribute("cx", x); c.setAttribute("cy", y);
+      c.setAttribute("r", 22); c.setAttribute("class", "node");
+      svg.appendChild(c);
+      const t = document.createElementNS(NS, "text");
+      t.setAttribute("x", x); t.setAttribute("y", y);
+      t.setAttribute("class", "node-label");
+      t.textContent = n;
+      svg.appendChild(t);
+    });
+
+    // connectivity readout
+    const conn = document.getElementById("conn");
+    conn.innerHTML = "";
+    state.pairs.forEach(p => {
+      const [text, cls] = statusText(p);
+      const row = document.createElement("div");
+      row.className = "row";
+      row.innerHTML = "<span>" + p.a + " &harr; " + p.b + "</span>" +
+                      "<span class='" + cls + "'>" + text + "</span>";
+      conn.appendChild(row);
+    });
+  }
+
+  async function load() {
+    const r = await fetch("/api/state");
+    render(await r.json());
+  }
+
+  async function toggle(a, b, wasUp) {
+    const r = await fetch("/api/toggle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ a, b })
+    });
+    const state = await r.json();
+    log("Link " + a + "-" + b + (wasUp ? " down" : " up"));
+    render(state);
+  }
+
+  load();
+</script>
+</body>
+</html>
