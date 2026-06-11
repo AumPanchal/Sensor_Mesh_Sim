@@ -103,6 +103,4 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    print(f"Mesh proof of concept running at http://localhost:{PORT}")
-    print("Press Ctrl+C to stop.")
     HTTPServer(("", PORT), Handler).serve_forever()
