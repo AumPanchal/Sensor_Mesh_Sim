@@ -18,25 +18,42 @@ class Mesh:
         if a in self.graph.get(b, []): self.graph[b].remove(a)
 
     def reachable(self, a, b):
-        #standard list instead of a fancy deque
-        stack =[a]
-        seen =[]
-        
+        if a == b:
+            return True
+        stack = [a]
+        seen = set()           
+        # set is faster for "in" checks than a list
         while stack:
-            cur =stack.pop()
-            if cur ==b:
+            cur = stack.pop()
+            if cur == b:
                 return True
-                
-            if cur not in seen:
-                seen.append(cur)
-                #add all neighbors to the pile to check next
-                for neighbor in self.graph.get(cur, []):
-                    stack.append(neighbor)
-                    
+            if cur in seen:
+                continue
+            seen.add(cur)
+            for neighbor in self.graph.get(cur, []):
+                stack.append(neighbor)
         return False
+    
+    def nodes(self):
+        #list of all nodes, for frontend to draw
+        return sorted(self.graph.keys())
+ 
+    def state(self):
+        #for frontend to render
+        links = []
+        for a in self.graph:
+            for b in self.graph[a]:
+                if a < b:  # each link once, not twice
+                    links.append((a, b))
+        return {"nodes": self.nodes(), "links": links}
+    
+    def add_node(self, n):
+        #create a node on its own, before wiring it to anything
+        if n not in self.graph:
+            self.graph[n] = []
 
-if __name__ =="__main__":
-    m =Mesh()
+if __name__ == "__main__":
+    m = Mesh()
     m.connect("A", "B")
     m.connect("B", "C")
     print("A reach C:", m.reachable("A", "C"))   #True
