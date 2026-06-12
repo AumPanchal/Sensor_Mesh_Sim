@@ -1,262 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sensor Mesh Sim</title>
-<style>
-  body { font-family: system-ui, sans-serif; margin: 0; padding: 24px;
-         background: #f5f6f8; color: #1c2127; }
-  h1 { font-size: 18px; margin: 0 0 4px; }
-  p.sub { margin: 0 0 16px; color: #5a6472; font-size: 13px; }
-  .bar { margin-bottom: 16px; display: flex; gap: 12px; align-items: center; }
-  button { font: inherit; padding: 8px 16px; border: 1px solid #1c2127;
-           background: #1c2127; color: #fff; border-radius: 5px; cursor: pointer; }
-  button.secondary { background: #fff; color: #1c2127; }
-  .wrap { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
-  .panel { background: #fff; border: 1px solid #d8dce2; border-radius: 6px; padding: 16px; }
-  svg { display: block; background: #fff; border: 1px dashed #cfd4db; border-radius: 6px; cursor: crosshair; }
-  .edge-hit { stroke: transparent; stroke-width: 18; cursor: pointer; }
-  .edge { stroke-width: 3; pointer-events: none; }
-  .edge.up { stroke: #2e7d32; }
-  .edge.down { stroke: #c62828; stroke-dasharray: 6 5; }
-  .wlabel { fill: #5a6472; font-size: 12px; text-anchor: middle; pointer-events: none; }
-  .node { fill: #1c2127; cursor: pointer; }
-  .node.sel { stroke: #1565c0; stroke-width: 4; }
-  .node-label { fill: #fff; font-size: 14px; font-weight: 600;
-                text-anchor: middle; dominant-baseline: central; pointer-events: none; }
-  .hint { font-size: 12px; color: #5a6472; margin-top: 8px; }
-  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em;
-       color: #5a6472; margin: 0 0 10px; }
-  .col { width: 300px; }
-  .row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0;
-         border-bottom: 1px solid #eef0f3; font-size: 14px; align-items: center; }
-  .row:last-child { border-bottom: none; }
-  .right { display: flex; gap: 8px; align-items: center; }
-  .right input { width: 52px; font: inherit; padding: 2px 4px;
-                 border: 1px solid #cfd4db; border-radius: 4px; }
-  .up { color: #2e7d32; } .down { color: #c62828; } .via { color: #1565c0; }
-  .empty { color: #9aa3af; font-size: 13px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor Mesh Simulator</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        #network-state { background: #f4f4f4; padding: 15px; border-radius: 5px; font-family: monospace; white-space: pre-wrap;}
+    </style>
 </head>
 <body>
-  <h1>Sensor Mesh Sim</h1>
-  <p class="sub">Click empty space in the canvas to add a node. Click one node then another to link. Click an edge to toggle it. Edit weights in edge status. Run Simulate.</p>
-
-  <div class="bar">
-    <button id="sim">Simulate</button>
-    <button id="reset" class="secondary">Reset</button>
-  </div>
-
-  <div class="wrap">
-    <div class="panel">
-      <svg id="graph" width="420" height="340"></svg>
-      <div class="hint">Green = link up. Red dashed = link down. Blue ring = selected. Number = weight.</div>
-    </div>
-
-    <div class="panel col">
-      <h2>Edge status</h2>
-      <div id="links"></div>
-    </div>
-
-    <div class="panel col">
-      <h2>Connectivity</h2>
-      <div id="conn"><div class="empty">Run Simulate to compute.</div></div>
-    </div>
-  </div>
-
-<script>
-  const svg = document.getElementById("graph");
-  const NS = "http://www.w3.org/2000/svg";
-
-  //State
-  let nodes = {};
-  let edges = [];
-  let selected = null;
-  let nextCode = 65;
-
-  function nextId() { return String.fromCharCode(nextCode++); }
-
-  //Canvas click
-  svg.addEventListener("click", e => {
-    if (e.target !== svg) return; //Ignore elements
-    const r = svg.getBoundingClientRect();
-    addNode(e.clientX - r.left, e.clientY - r.top);
-  });
-
-  function addNode(x, y) {
-    nodes[nextId()] = [x, y];
-    draw();
-    clearConn();
-  }
-
-  //Link logic
-  function clickNode(id) {
-    if (selected === null) { selected = id; draw(); return; }
-    if (selected === id) { selected = null; draw(); return; }
-    addEdge(selected, id);
-    selected = null;
-  }
-
-  function addEdge(a, b) {
-    if (!edges.some(e => (e.a === a && e.b === b) || (e.a === b && e.b === a))) {
-      edges.push({ a, b, up: true, w: 1 });
-      clearConn();
-    }
-    draw();
-  }
-
-  //Toggle edge
-  function toggleEdge(e) {
-    e.up = !e.up;
-    draw();
-    clearConn();
-  }
-
-  //Run sim
-  document.getElementById("sim").addEventListener("click", async () => {
-    const payload = {
-      nodes: Object.keys(nodes),
-      edges: edges.filter(e => e.up).map(e => ({ a: e.a, b: e.b, w: e.w }))
-    };
-    const el = document.getElementById("conn");
-    if (payload.nodes.length < 2) {
-      el.innerHTML = "<div class='empty'>Add at least two nodes first.</div>";
-      return;
-    }
-    try {
-      const r = await fetch("/api/simulate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      if (!r.ok) throw new Error("server returned " + r.status);
-      const data = await r.json();
-      renderConn(data.pairs);
-    } catch (err) {
-      el.innerHTML = "<div class='empty'>Simulate failed: " + err.message +
-        ". Replace server.py with the new version and restart it.</div>";
-    }
-  });
-
-  document.getElementById("reset").addEventListener("click", () => location.reload());
-
-  function clearConn() {
-    document.getElementById("conn").innerHTML =
-      "<div class='empty'>Graph changed. Run Simulate to recompute.</div>";
-  }
-
-  function statusText(p) {
-    if (p.direct) return ["connected (direct) \u00b7 weight " + p.weight, "up"];
-    if (p.reachable) return ["connected (via " + p.path.slice(1, -1).join(", ") + ") \u00b7 weight " + p.weight, "via"];
-    return ["connection lost", "down"];
-  }
-
-  //Render
-  function draw() {
-    svg.innerHTML = "";
-    edges.forEach(e => {
-      const [x1, y1] = nodes[e.a], [x2, y2] = nodes[e.b];
-      const line = document.createElementNS(NS, "line");
-      line.setAttribute("x1", x1); line.setAttribute("y1", y1);
-      line.setAttribute("x2", x2); line.setAttribute("y2", y2);
-      line.setAttribute("class", "edge " + (e.up ? "up" : "down"));
-      svg.appendChild(line);
-      
-      const hit = document.createElementNS(NS, "line");
-      hit.setAttribute("x1", x1); hit.setAttribute("y1", y1);
-      hit.setAttribute("x2", x2); hit.setAttribute("y2", y2);
-      hit.setAttribute("class", "edge-hit");
-      hit.addEventListener("click", (evt) => { 
-        evt.stopPropagation(); //Block canvas click
-        toggleEdge(e); 
-      });
-      svg.appendChild(hit);
-      
-      //Weight label
-      const wl = document.createElementNS(NS, "text");
-      wl.setAttribute("x", (x1 + x2) / 2);
-      wl.setAttribute("y", (y1 + y2) / 2 - 6);
-      wl.setAttribute("class", "wlabel");
-      wl.textContent = e.w;
-      svg.appendChild(wl);
-    });
+    <h1>Sensor Mesh Discovery</h1>
+    <p>Live topology aggregated from 3 isolated Docker containers:</p>
     
-    Object.keys(nodes).forEach(id => {
-      const [x, y] = nodes[id];
-      const c = document.createElementNS(NS, "circle");
-      c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 22);
-      c.setAttribute("class", "node" + (id === selected ? " sel" : ""));
-      c.addEventListener("click", (evt) => { 
-        evt.stopPropagation(); //Block canvas click
-        clickNode(id); 
-      });
-      svg.appendChild(c);
-      
-      const t = document.createElementNS(NS, "text");
-      t.setAttribute("x", x); t.setAttribute("y", y);
-      t.setAttribute("class", "node-label"); t.textContent = id;
-      svg.appendChild(t);
-    });
-    renderLinks();
-  }
+    <div id="network-state">Loading network state...</div>
 
-  function renderLinks() {
-    const el = document.getElementById("links");
-    el.innerHTML = "";
-    if (edges.length === 0) { el.innerHTML = "<div class='empty'>No links yet.</div>"; return; }
-    edges.forEach(e => {
-      const row = document.createElement("div");
-      row.className = "row";
+    <script>
+        async function fetchFullGraph() {
+            // Fetch the local topology from all 3 nodes
+            const urls = [
+                'http://localhost:6701/status',
+                'http://localhost:6702/status',
+                'http://localhost:6703/status'
+            ];
+            
+            try {
+                const responses = await Promise.all(urls.map(url => fetch(url)));
+                const nodesData = await Promise.all(responses.map(res => res.json()));
+                
+                // Display the stitched JSON state on the screen
+                document.getElementById('network-state').textContent = JSON.stringify(nodesData, null, 2);
+                
+                // TODO: Insert your visual graph drawing logic here using 'nodesData'
+                
+            } catch (error) {
+                console.error("Failed to fetch graph data.", error);
+                document.getElementById('network-state').textContent = "Error fetching data. Are the Docker containers running?";
+            }
+        }
 
-      const name = document.createElement("span");
-      name.textContent = e.a + " \u2013 " + e.b;
-
-      const right = document.createElement("span");
-      right.className = "right";
-
-      const winp = document.createElement("input");
-      winp.type = "number"; winp.min = "0"; winp.step = "1"; winp.value = e.w;
-      winp.title = "edge weight";
-      winp.addEventListener("change", () => {
-        const v = Number(winp.value);
-        e.w = (isNaN(v) || v < 0) ? 1 : v;
-        draw();
-        clearConn();
-      });
-
-      const st = document.createElement("span");
-      st.className = e.up ? "up" : "down";
-      st.textContent = e.up ? "up" : "down";
-
-      right.appendChild(winp);
-      right.appendChild(st);
-      row.appendChild(name);
-      row.appendChild(right);
-      el.appendChild(row);
-    });
-  }
-
-  function renderConn(pairs) {
-    const el = document.getElementById("conn");
-    if (!pairs.length) { el.innerHTML = "<div class='empty'>Add at least two nodes.</div>"; return; }
-    el.innerHTML = "";
-    pairs.forEach(p => {
-      const [text, cls] = statusText(p);
-      const row = document.createElement("div");
-      row.className = "row";
-      const name = document.createElement("span");
-      name.textContent = p.a + " \u2194 " + p.b;
-      const val = document.createElement("span");
-      val.className = cls;
-      val.textContent = text;
-      row.appendChild(name);
-      row.appendChild(val);
-      el.appendChild(row);
-    });
-  }
-
-  draw();
-</script>
+        // Poll the containers every 2 seconds
+        setInterval(fetchFullGraph, 2000);
+        fetchFullGraph();
+    </script>
 </body>
 </html>
