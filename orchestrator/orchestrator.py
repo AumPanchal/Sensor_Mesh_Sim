@@ -4,6 +4,11 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 PORT = int(os.environ.get("PORT", 6767))
 NODE_PORT = int(os.environ.get("NODE_PORT", 8000))
 
+# Global variables to cache the last simulation state for routing
+last_nodes = []
+last_graph = {}
+last_weight = {}
+
 def node_url(nid, path):
     return f"http://node_{nid.lower()}:{NODE_PORT}{path}"
 
@@ -13,22 +18,24 @@ def post(url, body):
     with urllib.request.urlopen(req, timeout=2) as r:
         return json.loads(r.read())
 
+def get(url):
+    req = urllib.request.Request(url)
+    with urllib.request.urlopen(req, timeout=2) as r:
+        return json.loads(r.read())
+
 def push_neighbors(nid, neighbors):
-    #tell node who its current neighbors are
     try:
         post(node_url(nid, "/neighbors"), {"weights": neighbors})
     except Exception as e:
         pass
 
 def get_live(nid):
-    #ask node which neighbors it can actually ping
     try:
         return post(node_url(nid, "/reach"), {})
     except Exception as e:
         return {"live": [], "weights": {}}
 
 def dijkstra(graph, weight, src, dst):
-    #find shortest weighted path from src to dst
     if src == dst:
         return [src], 0
     dist = {src: 0}
@@ -57,24 +64,22 @@ def dijkstra(graph, weight, src, dst):
     return path, dist[dst]
 
 def simulate(nodes, edges):
-    #build intended neighbor map from up edges
+    global last_nodes, last_graph, last_weight
+    
     intended = {n: {} for n in nodes}
     for e in edges:
         a, b, w = e["a"], e["b"], int(e.get("w", 1))
         intended[a][b] = w
         intended[b][a] = w
 
-    #push neighbor lists to all nodes
     for nid, nbrs in intended.items():
         push_neighbors(nid, nbrs)
 
-    #ask each node which neighbors it can actually ping
     live = {}
     for nid in nodes:
         info = get_live(nid)
         live[nid] = set(info.get("live", []))
 
-    #build confirmed graph — link only counts if both sides can ping each other
     graph = {n: [] for n in nodes}
     weight = {}
     seen = set()
@@ -90,7 +95,11 @@ def simulate(nodes, edges):
             weight[(a, b)] = w
             weight[(b, a)] = w
 
-    #run dijkstra on every node pair and return results
+    # Cache for routing
+    last_nodes = nodes
+    last_graph = graph
+    last_weight = weight
+
     ns = sorted(nodes)
     pairs = []
     for i in range(len(ns)):
@@ -125,6 +134,15 @@ class Handler(BaseHTTPRequestHandler):
         if self.path in ("/", "/index.html"):
             with open(INDEX, "rb") as f:
                 self.send(f.read(), "text/html")
+        elif self.path == "/api/traffic":
+            all_traffic = {}
+            for nid in last_nodes:
+                try:
+                    res = get(node_url(nid, "/traffic"))
+                    all_traffic[nid] = res.get("recent", [])
+                except:
+                    all_traffic[nid] = []
+            self.send(all_traffic)
         else:
             self.send_error(404)
 
@@ -134,6 +152,30 @@ class Handler(BaseHTTPRequestHandler):
             data = json.loads(self.rfile.read(length) or b"{}")
             pairs = simulate(data.get("nodes", []), data.get("edges", []))
             self.send({"pairs": pairs})
+            
+        elif self.path == "/api/send_message":
+            length = int(self.headers.get("Content-Length", 0))
+            data = json.loads(self.rfile.read(length) or b"{}")
+            src = data.get("src")
+            dst = data.get("dst")
+            
+            if not src or not dst or src not in last_graph or dst not in last_graph:
+                self.send({"status": "invalid_nodes"}, code=400)
+                return
+
+            path, total = dijkstra(last_graph, last_weight, src, dst)
+            if path:
+                envelope = {
+                    "msg_id": f"sim_{os.urandom(4).hex()}",
+                    "path": path
+                }
+                try:
+                    post(node_url(src, "/message"), envelope)
+                    self.send({"status": "dispatched", "path": path})
+                except Exception as e:
+                    self.send({"status": "error", "message": str(e)}, code=500)
+            else:
+                self.send({"status": "unreachable"})
         else:
             self.send_error(404)
 

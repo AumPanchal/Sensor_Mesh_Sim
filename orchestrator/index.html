@@ -17,7 +17,7 @@
   .panel { background: #fff; border: 1px solid #d8dce2; border-radius: 6px; padding: 16px; }
   svg { display: block; background: #fff; border: 1px dashed #cfd4db; border-radius: 6px; cursor: crosshair; }
   .edge-hit { stroke: transparent; stroke-width: 18; cursor: pointer; }
-  .edge { stroke-width: 3; pointer-events: none; }
+  .edge { stroke-width: 3; pointer-events: none; transition: stroke 0.3s, stroke-width 0.3s; }
   .edge.up { stroke: #2e7d32; }
   .edge.down { stroke: #c62828; stroke-dasharray: 6 5; }
   .wlabel { fill: #5a6472; font-size: 12px; text-anchor: middle; pointer-events: none; }
@@ -41,17 +41,33 @@
 </head>
 <body>
   <h1>Sensor Mesh Sim</h1>
-  <p class="sub">Click empty space in the canvas to add a node. Click one node then another to link. Click an edge to toggle it. Edit weights in edge status. Run Simulate.</p>
+  <p class="sub">Click empty space in the canvas to add a node. Click one node then another to link. Click an edge to toggle it.</p>
 
   <div class="bar">
     <button id="sim">Simulate</button>
-    <button id="reset" class="secondary">Reset</button>
+    <button id="reset" class="secondary">Reset Network</button>
   </div>
 
   <div class="wrap">
     <div class="panel">
       <svg id="graph" width="420" height="340"></svg>
-      <div class="hint">Green = link up. Red dashed = link down. Blue ring = selected. Number = weight.</div>
+      <div class="hint">Green = link up. Red dashed = link down. Blue = selected.</div>
+    </div>
+
+    <div class="panel col">
+      <h2>Test Message</h2>
+      <div class="row">
+        <input type="text" id="msg-src" placeholder="Src" style="width: 50px;">
+        <span>→</span>
+        <input type="text" id="msg-dst" placeholder="Dst" style="width: 50px;">
+        <button id="send-msg" style="padding: 4px 8px;">Send</button>
+      </div>
+      <div id="msg-status" class="hint">Sends simulated envelope along shortest path.</div>
+      
+      <h2 style="margin-top: 24px;">Live Mesh Traffic</h2>
+      <div id="traffic-log" class="hint" style="max-height: 150px; overflow-y: auto;">
+        <div class="empty">Waiting for traffic...</div>
+      </div>
     </div>
 
     <div class="panel col">
@@ -61,7 +77,7 @@
 
     <div class="panel col">
       <h2>Connectivity</h2>
-      <div id="conn"><div class="empty">Run Simulate to compute.</div></div>
+      <div id="conn"><div class="empty">Add at least two nodes.</div></div>
     </div>
   </div>
 
@@ -69,20 +85,44 @@
   const svg = document.getElementById("graph");
   const NS = "http://www.w3.org/2000/svg";
 
-  //State
   let nodes = {};
   let edges = [];
   let selected = null;
   let nextCode = 65;
+  let isSimulated = false; // Tracks if the graph has been computed at least once
 
   function nextId() { return String.fromCharCode(nextCode++); }
 
-  //Canvas click
   svg.addEventListener("click", e => {
-    if (e.target !== svg) return; //Ignore elements
+    if (e.target !== svg) return; 
     const r = svg.getBoundingClientRect();
     addNode(e.clientX - r.left, e.clientY - r.top);
   });
+
+  async function runSimulation() {
+    const payload = {
+      nodes: Object.keys(nodes),
+      edges: edges.filter(e => e.up).map(e => ({ a: e.a, b: e.b, w: e.w }))
+    };
+    const el = document.getElementById("conn");
+    if (payload.nodes.length < 2) {
+      el.innerHTML = "<div class='empty'>Add at least two nodes.</div>";
+      return;
+    }
+    try {
+      const r = await fetch("/api/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!r.ok) throw new Error("server returned " + r.status);
+      const data = await r.json();
+      renderConn(data.pairs);
+      isSimulated = true;
+    } catch (err) {
+      el.innerHTML = "<div class='empty'>Simulate failed.</div>";
+    }
+  }
 
   function addNode(x, y) {
     nodes[nextId()] = [x, y];
@@ -90,7 +130,6 @@
     clearConn();
   }
 
-  //Link logic
   function clickNode(id) {
     if (selected === null) { selected = id; draw(); return; }
     if (selected === id) { selected = null; draw(); return; }
@@ -106,42 +145,70 @@
     draw();
   }
 
-  //Toggle edge
   function toggleEdge(e) {
     e.up = !e.up;
     draw();
-    clearConn();
+    if (isSimulated) {
+      runSimulation();
+    } else {
+      clearConn();
+    }
   }
 
-  //Run sim
-  document.getElementById("sim").addEventListener("click", async () => {
-    const payload = {
-      nodes: Object.keys(nodes),
-      edges: edges.filter(e => e.up).map(e => ({ a: e.a, b: e.b, w: e.w }))
-    };
-    const el = document.getElementById("conn");
-    if (payload.nodes.length < 2) {
-      el.innerHTML = "<div class='empty'>Add at least two nodes first.</div>";
-      return;
-    }
+  document.getElementById("sim").addEventListener("click", runSimulation);
+  document.getElementById("reset").addEventListener("click", () => location.reload());
+
+  // Message Sending
+  document.getElementById("send-msg").addEventListener("click", async () => {
+    const src = document.getElementById("msg-src").value.toUpperCase();
+    const dst = document.getElementById("msg-dst").value.toUpperCase();
+    const el = document.getElementById("msg-status");
+    
+    if (!src || !dst) { el.textContent = "Please enter Src and Dst."; return; }
+
+    document.getElementById("traffic-log").innerHTML = "";
+    
     try {
-      const r = await fetch("/api/simulate", {
+      const r = await fetch("/api/send_message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ src, dst })
       });
-      if (!r.ok) throw new Error("server returned " + r.status);
       const data = await r.json();
-      renderConn(data.pairs);
+      if (data.status === "dispatched") {
+        el.textContent = `Sent! Routing: ${data.path.join(" → ")}`;
+      } else {
+        el.textContent = `Error: ${data.status}`;
+      }
     } catch (err) {
-      el.innerHTML = "<div class='empty'>Simulate failed: " + err.message +
-        ". Replace server.py with the new version and restart it.</div>";
+      el.textContent = "Network error. Is the server running?";
     }
   });
 
-  document.getElementById("reset").addEventListener("click", () => location.reload());
+  // Traffic Polling
+  setInterval(async () => {
+    if (Object.keys(nodes).length < 2) return;
+    try {
+      const r = await fetch("/api/traffic");
+      const traffic = await r.json();
+      
+      let logHtml = "";
+
+      for (const [nid, messages] of Object.entries(traffic)) {
+        messages.forEach(msg => {
+          logHtml += `<div style="padding:2px 0;"><b>${nid}:</b> ${msg.action} (${msg.id.substring(0,8)})</div>`;
+        });
+      }
+      
+      const logContainer = document.getElementById("traffic-log");
+      if (logHtml) {
+          logContainer.innerHTML = logHtml;
+      }
+    } catch (err) {}
+  }, 800);
 
   function clearConn() {
+    isSimulated = false;
     document.getElementById("conn").innerHTML =
       "<div class='empty'>Graph changed. Run Simulate to recompute.</div>";
   }
@@ -152,7 +219,6 @@
     return ["connection lost", "down"];
   }
 
-  //Render
   function draw() {
     svg.innerHTML = "";
     edges.forEach(e => {
@@ -161,6 +227,10 @@
       line.setAttribute("x1", x1); line.setAttribute("y1", y1);
       line.setAttribute("x2", x2); line.setAttribute("y2", y2);
       line.setAttribute("class", "edge " + (e.up ? "up" : "down"));
+      
+      const edgeId = [e.a, e.b].sort().join("-");
+      line.setAttribute("id", "edge-" + edgeId);
+      
       svg.appendChild(line);
       
       const hit = document.createElementNS(NS, "line");
@@ -168,12 +238,11 @@
       hit.setAttribute("x2", x2); hit.setAttribute("y2", y2);
       hit.setAttribute("class", "edge-hit");
       hit.addEventListener("click", (evt) => { 
-        evt.stopPropagation(); //Block canvas click
+        evt.stopPropagation(); 
         toggleEdge(e); 
       });
       svg.appendChild(hit);
       
-      //Weight label
       const wl = document.createElementNS(NS, "text");
       wl.setAttribute("x", (x1 + x2) / 2);
       wl.setAttribute("y", (y1 + y2) / 2 - 6);
@@ -188,7 +257,7 @@
       c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 22);
       c.setAttribute("class", "node" + (id === selected ? " sel" : ""));
       c.addEventListener("click", (evt) => { 
-        evt.stopPropagation(); //Block canvas click
+        evt.stopPropagation();
         clickNode(id); 
       });
       svg.appendChild(c);
@@ -222,7 +291,11 @@
         const v = Number(winp.value);
         e.w = (isNaN(v) || v < 0) ? 1 : v;
         draw();
-        clearConn();
+        if (isSimulated) {
+          runSimulation();
+        } else {
+          clearConn();
+        }
       });
 
       const st = document.createElement("span");
