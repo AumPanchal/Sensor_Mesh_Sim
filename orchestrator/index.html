@@ -241,12 +241,24 @@ svg.addEventListener("click", e => {
 
 function nextId() { return String.fromCharCode(nextCode++); }
 
-function addNode(x, y) {
+async function addNode(x, y) {
   const id = nextId();
   nodes[id] = [x, y];
   draw(); clearConn();
+  try {
+    const r = await fetch("/api/node/create", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ id })
+    });
+    const data = await r.json();
+    if (data.status !== "created") {
+      protoLog(`Container for ${id} did not come up in time`, "flood");
+    }
+  } catch (err) {
+    protoLog(`Failed to create container for ${id}: ${err.message}`, "flood");
+  }
 }
-
 function clickNode(id) {
   if (selected === null) { selected = id; draw(); return; }
   if (selected === id)   { selected = null; draw(); return; }
@@ -632,7 +644,12 @@ setInterval(async () => {
 //  Buttons
 // ═══════════════════════════════════════════════════════════════
 document.getElementById("btn-sim").addEventListener("click", runSimulation);
-document.getElementById("btn-reset").addEventListener("click", () => location.reload());
+document.getElementById("btn-reset").addEventListener("click", async () => {
+  try {
+    await fetch("/api/reset", { method: "POST", headers: {"Content-Type":"application/json"}, body: "{}" });
+  } catch(_) {}
+  location.reload();
+});
 
 // ── initial draw ──
 draw();

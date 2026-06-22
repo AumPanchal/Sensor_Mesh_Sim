@@ -1,5 +1,4 @@
 services:
-
   orchestrator:
     build:
       context: ./orchestrator
@@ -9,77 +8,27 @@ services:
     environment:
       PORT: 6767
       NODE_PORT: 8000
-      ALL_NODES: "A,B,C,D,E,F"
-    networks:
-      - mesh
-    depends_on:
-      - node_a
-      - node_b
-      - node_c
-      - node_d
-      - node_e
-      - node_f
-
-  node_a:
-    build:
-      context: ./node
-      dockerfile: Dockerfile
-    environment:
-      NODE_ID: "A"
-      NODE_PORT: 8000
+      NETWORK_NAME: sensor_mesh_sim_mesh
+      NODE_IMAGE: sensor_mesh_sim-node
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - mesh
 
-  node_b:
+  # Built once so the image exists for the orchestrator to spawn from.
+  # Never started directly — orchestrator creates/removes node containers at runtime.
+  node_template:
     build:
       context: ./node
       dockerfile: Dockerfile
-    environment:
-      NODE_ID: "B"
-      NODE_PORT: 8000
+    image: sensor_mesh_sim-node
     networks:
       - mesh
-
-  node_c:
-    build:
-      context: ./node
-      dockerfile: Dockerfile
-    environment:
-      NODE_ID: "C"
-      NODE_PORT: 8000
-    networks:
-      - mesh
-
-  node_d:
-    build:
-      context: ./node
-      dockerfile: Dockerfile
-    environment:
-      NODE_ID: "D"
-      NODE_PORT: 8000
-    networks:
-      - mesh
-
-  node_e:
-    build:
-      context: ./node
-      dockerfile: Dockerfile
-    environment:
-      NODE_ID: "E"
-      NODE_PORT: 8000
-    networks:
-      - mesh
-
-  node_f:
-    build:
-      context: ./node
-      dockerfile: Dockerfile
-    environment:
-      NODE_ID: "F"
-      NODE_PORT: 8000
-    networks:
-      - mesh
+    entrypoint: ["true"]
+    deploy:
+      replicas: 0
 
 networks:
   mesh:
+    name: sensor_mesh_sim_mesh
     driver: bridge
