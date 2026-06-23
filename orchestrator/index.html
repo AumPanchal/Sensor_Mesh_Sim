@@ -3,175 +3,151 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sensor Mesh Sim</title>
+<title>Sensor Mesh Sim v4</title>
 <style>
-/* ── reset + base ───────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; }
-body { font-family: system-ui, sans-serif; margin: 0; padding: 16px 20px;
-       background: #f0f2f5; color: #1c2127; }
-h1   { font-size: 17px; margin: 0 0 2px; }
-p.sub{ margin: 0 0 14px; color: #5a6472; font-size: 12px; }
+*,*::before,*::after{box-sizing:border-box;}
+body{font-family:system-ui,sans-serif;margin:0;padding:14px 18px;
+     background:#f0f2f5;color:#1c2127;font-size:13px;}
+h1{font-size:17px;margin:0 0 2px;}
+p.sub{margin:0 0 12px;color:#5a6472;font-size:12px;}
 
-/* ── toolbar ────────────────────────────────────────────────── */
-.bar { margin-bottom: 14px; display: flex; gap: 10px; align-items: center;
-       flex-wrap: wrap; }
-button { font: inherit; padding: 7px 14px; border: 1px solid #1c2127;
-         background: #1c2127; color: #fff; border-radius: 5px; cursor: pointer;
-         font-size: 13px; }
-button.sec  { background: #fff; color: #1c2127; }
-button.blue { background: #1565c0; border-color: #1565c0; }
-button.red  { background: #c62828; border-color: #c62828; }
-button:hover { opacity: .85; }
+/* toolbar */
+.bar{margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+button{font:inherit;padding:6px 13px;border:1px solid #1c2127;
+       background:#1c2127;color:#fff;border-radius:5px;cursor:pointer;font-size:12px;}
+button.sec{background:#fff;color:#1c2127;}
+button.blue{background:#1565c0;border-color:#1565c0;}
+button.amber{background:#e65100;border-color:#e65100;}
+button:hover{opacity:.85;}
+input[type=text],input[type=number]{font:inherit;font-size:12px;
+  padding:3px 6px;border:1px solid #cfd4db;border-radius:4px;}
 
-/* ── layout ─────────────────────────────────────────────────── */
-.workspace { display: grid;
-             grid-template-columns: 440px 1fr;
-             grid-template-rows: auto auto;
-             gap: 14px; }
-.panel { background: #fff; border: 1px solid #d8dce2; border-radius: 7px;
-         padding: 14px; }
-.panel-title { font-size: 11px; font-weight: 600; text-transform: uppercase;
-               letter-spacing: .06em; color: #5a6472; margin: 0 0 10px; }
+/* layout */
+.workspace{display:grid;grid-template-columns:430px 1fr;gap:12px;}
+.panel{background:#fff;border:1px solid #d8dce2;border-radius:7px;padding:12px;margin-bottom:12px;}
+.ptitle{font-size:10px;font-weight:700;text-transform:uppercase;
+        letter-spacing:.07em;color:#5a6472;margin:0 0 9px;}
 
-/* ── svg canvas ─────────────────────────────────────────────── */
-svg { display: block; background: #fff;
-      border: 1px dashed #cfd4db; border-radius: 6px; cursor: crosshair; }
-.edge-hit { stroke: transparent; stroke-width: 18; cursor: pointer; fill: none; }
-.edge { stroke-width: 2.5; pointer-events: none;
-        transition: stroke .25s, stroke-dasharray .25s; fill: none; }
-.edge.up       { stroke: #2e7d32; }
-.edge.degraded { stroke: #f57c00; stroke-dasharray: 10 4; }
-.edge.down     { stroke: #c62828; stroke-dasharray: 6 5; }
-.wlabel   { fill: #5a6472; font-size: 11px; text-anchor: middle;
-             pointer-events: none; }
-.mlabel   { fill: #9aa3af; font-size: 9px; text-anchor: middle;
-             pointer-events: none; }
-.node     { fill: #1c2127; cursor: pointer; }
-.node.sel { stroke: #1565c0; stroke-width: 3.5; }
-.node-label { fill: #fff; font-size: 13px; font-weight: 600;
-              text-anchor: middle; dominant-baseline: central;
-              pointer-events: none; }
+/* canvas */
+svg{display:block;background:#fff;border:1px dashed #cfd4db;border-radius:6px;cursor:crosshair;}
+.edge-hit{stroke:transparent;stroke-width:18;cursor:pointer;fill:none;}
+.edge{stroke-width:2.5;pointer-events:none;transition:stroke .25s;fill:none;}
+.edge.up{stroke:#2e7d32;}.edge.degraded{stroke:#f57c00;stroke-dasharray:10 4;}
+.edge.down{stroke:#c62828;stroke-dasharray:6 5;}
+.wlabel{fill:#5a6472;font-size:10px;text-anchor:middle;pointer-events:none;}
+.mlabel{fill:#9aa3af;font-size:9px;text-anchor:middle;pointer-events:none;}
+.node{fill:#1c2127;cursor:pointer;}
+.node.sel{stroke:#1565c0;stroke-width:3.5;}
+.node-label{fill:#fff;font-size:12px;font-weight:700;
+            text-anchor:middle;dominant-baseline:central;pointer-events:none;}
 
-/* ── small forms inside panels ─────────────────────────────── */
-.row { display: flex; justify-content: space-between; gap: 10px;
-       padding: 5px 0; border-bottom: 1px solid #eef0f3;
-       font-size: 13px; align-items: center; }
-.row:last-child { border-bottom: none; }
-input[type=text],input[type=number] {
-  width: 52px; font: inherit; padding: 2px 5px;
-  border: 1px solid #cfd4db; border-radius: 4px; font-size: 12px; }
-select { font: inherit; font-size: 12px; border: 1px solid #cfd4db;
-         border-radius: 4px; padding: 2px 4px; }
-.up   { color: #2e7d32; } .down { color: #c62828; }
-.degraded { color: #f57c00; }
-.via  { color: #1565c0; }
-.empty{ color: #9aa3af; font-size: 12px; }
+/* tables */
+.mtable{width:100%;border-collapse:collapse;font-size:11px;}
+.mtable th{background:#f5f6f8;color:#5a6472;font-weight:600;text-align:left;
+           padding:4px 6px;border-bottom:2px solid #d8dce2;white-space:nowrap;}
+.mtable td{padding:3px 6px;border-bottom:1px solid #eef0f3;vertical-align:middle;}
+.mtable tr:last-child td{border-bottom:none;}
+.mtable input[type=number]{width:58px;}
+.mtable select{font-size:11px;border:1px solid #cfd4db;border-radius:3px;padding:1px 3px;}
+.badge{display:inline-block;padding:1px 7px;border-radius:9px;font-size:10px;font-weight:700;}
+.badge.up{background:#e8f5e9;color:#2e7d32;}
+.badge.degraded{background:#fff3e0;color:#e65100;}
+.badge.down{background:#ffebee;color:#c62828;}
 
-/* ── metrics table ─────────────────────────────────────────── */
-.metrics-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.metrics-table th { background: #f5f6f8; color: #5a6472; font-weight: 600;
-  text-align: left; padding: 5px 7px; border-bottom: 2px solid #d8dce2;
-  font-size: 11px; white-space: nowrap; }
-.metrics-table td { padding: 4px 7px; border-bottom: 1px solid #eef0f3;
-  vertical-align: middle; }
-.metrics-table tr:last-child td { border-bottom: none; }
-.metrics-table input[type=number] { width: 60px; }
-.metrics-table select { width: 90px; }
-.badge { display: inline-block; padding: 1px 7px; border-radius: 9px;
-         font-size: 11px; font-weight: 600; }
-.badge.up       { background: #e8f5e9; color: #2e7d32; }
-.badge.degraded { background: #fff3e0; color: #e65100; }
-.badge.down     { background: #ffebee; color: #c62828; }
+/* status panel rows */
+.srow{display:flex;justify-content:space-between;gap:10px;
+      padding:4px 0;border-bottom:1px solid #eef0f3;font-size:12px;align-items:center;}
+.srow:last-child{border-bottom:none;}
+.up{color:#2e7d32;}.down{color:#c62828;}.via{color:#1565c0;}
+.degraded{color:#f57c00;}.empty{color:#9aa3af;font-size:12px;}
 
-/* ── transport / message panels ─────────────────────────────── */
-.msg-log { max-height: 140px; overflow-y: auto; font-family: monospace;
-           font-size: 11px; background: #f8f9fb; border: 1px solid #e0e3e8;
-           border-radius: 5px; padding: 6px 8px; }
-.msg-log div { padding: 1px 0; }
-.msg-log .ae    { color: #1565c0; }
-.msg-log .flood { color: #6a1b9a; }
-.msg-log .route { color: #2e7d32; }
-.hint { font-size: 11px; color: #5a6472; margin-top: 6px; }
+/* log panels */
+.logbox{max-height:130px;overflow-y:auto;font-family:monospace;font-size:11px;
+        background:#f8f9fb;border:1px solid #e0e3e8;border-radius:5px;padding:5px 8px;}
+.logbox div{padding:1px 0;}
+.logbox .hb{color:#1565c0;}.logbox .ack{color:#6a1b9a;}
+.logbox .hello{color:#00695c;}.logbox .gossip{color:#e65100;}
+.logbox .route{color:#2e7d32;}.logbox .flood{color:#c62828;}
+.logbox .info{color:#5a6472;}
 
-/* ── traffic log ──────────────────────────────────────────── */
-#traffic-log { max-height: 120px; overflow-y: auto;
-               font-size: 12px; font-family: monospace; }
+/* node status cards */
+.node-cards{display:flex;flex-wrap:wrap;gap:8px;}
+.ncard{background:#f8f9fb;border:1px solid #d8dce2;border-radius:6px;
+       padding:8px 10px;min-width:130px;font-size:11px;}
+.ncard h4{margin:0 0 5px;font-size:12px;color:#1c2127;}
+.ncard .miss{color:#c62828;font-weight:700;}
 
-/* ── inline field group ──────────────────────────────────────── */
-.field-group { display: flex; gap: 8px; align-items: center;
-               flex-wrap: wrap; margin-bottom: 8px; }
-.field-group label { font-size: 12px; color: #5a6472; white-space: nowrap; }
+/* field group */
+.fg{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:7px;}
+.fg label{font-size:11px;color:#5a6472;white-space:nowrap;}
+.hint{font-size:11px;color:#5a6472;margin-top:5px;}
 </style>
 </head>
 <body>
 
-<h1>Sensor Mesh Sim</h1>
-<p class="sub">Click canvas to add a node · click two nodes to link · click an edge to toggle · edit metrics inline.</p>
+<h1>Sensor Mesh Sim <span style="font-size:12px;color:#5a6472;">v4 — heartbeat · ACK · HELLO · gossip</span></h1>
+<p class="sub">Click canvas to add node · click two nodes to link · click edge to toggle · double-click edge to edit metrics.</p>
 
 <div class="bar">
   <button id="btn-sim">▶ Simulate</button>
   <button id="btn-reset" class="sec">Reset</button>
-
   <span style="color:#cfd4db">|</span>
-
-  <!-- Flood -->
-  <input type="text" id="fl-origin" placeholder="Origin" style="width:60px">
-  <input type="text" id="fl-payload" placeholder="Flood payload" style="width:120px">
+  <label style="font-size:12px;color:#5a6472;">Flood origin</label>
+  <input type="text" id="fl-origin" placeholder="A" style="width:44px">
+  <input type="text" id="fl-payload" placeholder="payload" style="width:100px">
   <button id="btn-flood" class="blue">Flood</button>
+  <span style="color:#cfd4db">|</span>
+  <label style="font-size:12px;color:#5a6472;">HELLO from</label>
+  <input type="text" id="hello-node" placeholder="A" style="width:44px">
+  <button id="btn-hello" class="amber">HELLO</button>
 </div>
 
 <div class="workspace">
 
-  <!-- ── left col: canvas + message sender ──────────────────────── -->
-  <div style="display:flex;flex-direction:column;gap:14px;">
-
-    <div class="panel" style="padding:12px;">
-      <p class="panel-title">Network canvas</p>
-      <svg id="graph" width="412" height="320"></svg>
-      <div class="hint">Green=up · Orange dashed=degraded · Red dashed=down · Blue ring=selected</div>
+  <!-- LEFT -->
+  <div>
+    <div class="panel" style="padding:10px;">
+      <p class="ptitle">Network canvas</p>
+      <svg id="graph" width="406" height="300"></svg>
+      <div class="hint">Green=up · Orange dashed=degraded · Red dashed=down (heartbeat-driven)</div>
     </div>
 
+    <!-- Send message -->
     <div class="panel">
-      <p class="panel-title">Send message (Dijkstra routing)</p>
-      <div class="field-group">
-        <label>Src</label><input type="text" id="msg-src" placeholder="A" style="width:44px">
-        <label>→ Dst</label><input type="text" id="msg-dst" placeholder="F" style="width:44px">
-        <button id="send-msg" style="padding:5px 12px;">Send</button>
+      <p class="ptitle">Send message (Dijkstra + ACK)</p>
+      <div class="fg">
+        <label>Src</label><input type="text" id="msg-src" placeholder="A" style="width:40px">
+        <label>→ Dst</label><input type="text" id="msg-dst" placeholder="F" style="width:40px">
+        <button id="send-msg" style="padding:4px 10px;">Send</button>
       </div>
-      <div id="msg-status" class="hint">Sends envelope along composite-cost shortest path.</div>
+      <div id="msg-status" class="hint">Message will be ACK'd hop-by-hop.</div>
 
-      <p class="panel-title" style="margin-top:14px;">Live traffic log</p>
-      <div id="traffic-log"><div class="empty">Waiting for traffic…</div></div>
+      <p class="ptitle" style="margin-top:12px;">Live traffic</p>
+      <div class="logbox" id="traffic-log"><div class="empty">Waiting…</div></div>
     </div>
 
+    <!-- Edge list -->
+    <div class="panel">
+      <p class="ptitle">Edge list</p>
+      <div id="links"><div class="empty">No edges yet.</div></div>
+    </div>
   </div>
 
-  <!-- ── right col: metrics table + connectivity + transport ─────── -->
-  <div style="display:flex;flex-direction:column;gap:14px;">
+  <!-- RIGHT -->
+  <div>
 
-    <!-- Link metrics editor -->
+    <!-- Link metrics -->
     <div class="panel">
-      <p class="panel-title">Link metrics — edit inline, click Apply to push to nodes</p>
+      <p class="ptitle">Link metrics — edit inline · Apply pushes to node containers</p>
       <div style="overflow-x:auto;">
-        <table class="metrics-table" id="metrics-table">
-          <thead>
-            <tr>
-              <th>Link</th>
-              <th>Weight</th>
-              <th>BW (Mbps)</th>
-              <th>Delay (ms)</th>
-              <th>Jitter (ms)</th>
-              <th>Speed (Mbps)</th>
-              <th>Loss (%)</th>
-              <th>MTU (B)</th>
-              <th>Status</th>
-              <th>Composite cost</th>
-              <th></th>
-            </tr>
-          </thead>
+        <table class="mtable" id="metrics-table">
+          <thead><tr>
+            <th>Link</th><th>Weight</th><th>BW(M)</th><th>Delay(ms)</th>
+            <th>Jitter(ms)</th><th>Speed(M)</th><th>Loss(%)</th><th>MTU</th>
+            <th>Status</th><th>Cost</th><th></th>
+          </tr></thead>
           <tbody id="metrics-body">
-            <tr><td colspan="11" class="empty" style="padding:10px;">
-              Add nodes and edges, then Simulate.</td></tr>
+            <tr><td colspan="11" class="empty" style="padding:8px;">Add edges then Simulate.</td></tr>
           </tbody>
         </table>
       </div>
@@ -179,481 +155,431 @@ select { font: inherit; font-size: 12px; border: 1px solid #cfd4db;
 
     <!-- Connectivity -->
     <div class="panel">
-      <p class="panel-title">Connectivity</p>
+      <p class="ptitle">Connectivity</p>
       <div id="conn"><div class="empty">Add at least two nodes.</div></div>
     </div>
 
-    <!-- Edge status list -->
+    <!-- Node status — heartbeat + ACK + HELLO + gossip -->
     <div class="panel">
-      <p class="panel-title">Edge list</p>
-      <div id="links"><div class="empty">No edges yet.</div></div>
+      <p class="ptitle">Node status (heartbeat · ACK pending · gossip store)</p>
+      <div class="node-cards" id="node-cards">
+        <div class="empty">Run Simulate first.</div>
+      </div>
     </div>
 
-    <!-- Transport / flooding log -->
+    <!-- Protocol log -->
     <div class="panel">
-      <p class="panel-title">Transport log (flood · routing)</p>
-      <div class="msg-log" id="proto-log">
-        <div class="empty">No events yet.</div>
-      </div>
+      <p class="ptitle">Protocol log</p>
+      <div class="logbox" id="proto-log"><div class="empty">No events.</div></div>
     </div>
 
   </div>
 </div>
 
 <script>
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 //  State
-// ═══════════════════════════════════════════════════════════════
-const NS = "http://www.w3.org/2000/svg";
+// ═══════════════════════════════════════════
+const NS  = "http://www.w3.org/2000/svg";
 const svg = document.getElementById("graph");
 
-let nodes     = {};           // id → [x, y]
-let edges     = [];           // {a,b,up,w}
-let selected  = null;
-let nextCode  = 65;           // 'A'
+let nodes       = {};     // id -> [x, y]
+let edges       = [];     // {a, b, up, w}
+let selected    = null;
+let nextCode    = 65;
 let isSimulated = false;
+let edgeMetrics = {};     // "A|B" -> metrics
 
-// Local shadow of the edge metrics (mirrors orchestrator edge_store)
-// key: "A|B" → metrics object
-let edgeMetrics = {};
-
-function edgeKey(a, b) { return [a, b].sort().join("|"); }
-
-function defaultMetrics(w=1) {
-  return { weight: w, bandwidth: 100, delay: 5, jitter: 1,
-           speed: 100, loss: 0, status: "up", mtu: 1500 };
+function eKey(a, b) { return [a,b].sort().join("|"); }
+function defM(w=1) {
+  return {weight:w,bandwidth:100,delay:5,jitter:1,speed:100,loss:0,status:"up",mtu:1500};
+}
+function cost(m) {
+  if(!m||m.status==="down") return Infinity;
+  const f = m.status==="degraded"?3:1;
+  return ((+m.weight||1)+(+m.delay||0)/10+(+m.jitter||0)/5+(+m.loss||0)*2)*f;
 }
 
-function compositeCost(m) {
-  if (!m || m.status === "down") return Infinity;
-  const f = m.status === "degraded" ? 3 : 1;
-  return ((+m.weight||1) + (+m.delay||0)/10 + (+m.jitter||0)/5 + (+m.loss||0)*2) * f;
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  Canvas interaction
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
+//  Canvas
+// ═══════════════════════════════════════════
 svg.addEventListener("click", e => {
-  if (e.target !== svg) return;
-  const r = svg.getBoundingClientRect();
-  addNode(e.clientX - r.left, e.clientY - r.top);
+  if(e.target!==svg) return;
+  const r=svg.getBoundingClientRect();
+  addNode(e.clientX-r.left, e.clientY-r.top);
 });
 
-function nextId() { return String.fromCharCode(nextCode++); }
-
-async function addNode(x, y) {
-  const id = nextId();
-  nodes[id] = [x, y];
-  draw(); clearConn();
-  try {
-    const r = await fetch("/api/node/create", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ id })
-    });
-    const data = await r.json();
-    if (data.status !== "created") {
-      protoLog(`Container for ${id} did not come up in time`, "flood");
-    }
-  } catch (err) {
-    protoLog(`Failed to create container for ${id}: ${err.message}`, "flood");
-  }
+function addNode(x,y){
+  const id=String.fromCharCode(nextCode++);
+  nodes[id]=[x,y]; draw(); clearConn();
 }
-function clickNode(id) {
-  if (selected === null) { selected = id; draw(); return; }
-  if (selected === id)   { selected = null; draw(); return; }
-  addEdge(selected, id);
-  selected = null;
+function clickNode(id){
+  if(selected===null){selected=id;draw();return;}
+  if(selected===id){selected=null;draw();return;}
+  addEdge(selected,id); selected=null;
 }
-
-function addEdge(a, b) {
-  if (!edges.some(e => (e.a===a&&e.b===b)||(e.a===b&&e.b===a))) {
-    edges.push({ a, b, up: true, w: 1 });
-    const k = edgeKey(a, b);
-    if (!edgeMetrics[k]) edgeMetrics[k] = defaultMetrics(1);
-    renderMetricsTable(); clearConn();
+function addEdge(a,b){
+  if(!edges.some(e=>(e.a===a&&e.b===b)||(e.a===b&&e.b===a))){
+    edges.push({a,b,up:true,w:1});
+    const k=eKey(a,b);
+    if(!edgeMetrics[k]) edgeMetrics[k]=defM(1);
+    renderMetrics(); clearConn();
   }
   draw();
 }
-
-function toggleEdge(e) {
-  e.up = !e.up;
-  const k = edgeKey(e.a, e.b);
-  if (!edgeMetrics[k]) edgeMetrics[k] = defaultMetrics(e.w);
-  edgeMetrics[k].status = e.up ? "up" : "down";
-  draw(); renderMetricsTable();
-  if (isSimulated) runSimulation(); else clearConn();
+function toggleEdge(e){
+  e.up=!e.up;
+  const k=eKey(e.a,e.b);
+  if(!edgeMetrics[k]) edgeMetrics[k]=defM(e.w);
+  edgeMetrics[k].status=e.up?"up":"down";
+  draw(); renderMetrics();
+  if(isSimulated) runSim(); else clearConn();
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 //  Draw
-// ═══════════════════════════════════════════════════════════════
-function draw() {
-  svg.innerHTML = "";
-
-  edges.forEach(e => {
-    const [x1,y1] = nodes[e.a], [x2,y2] = nodes[e.b];
-    const k = edgeKey(e.a, e.b);
-    const m = edgeMetrics[k] || {};
-    const st = !e.up ? "down" : (m.status || "up");
-
-    const line = document.createElementNS(NS, "line");
-    line.setAttribute("x1",x1);line.setAttribute("y1",y1);
-    line.setAttribute("x2",x2);line.setAttribute("y2",y2);
-    line.setAttribute("class", "edge " + st);
+// ═══════════════════════════════════════════
+function draw(){
+  svg.innerHTML="";
+  edges.forEach(e=>{
+    const [x1,y1]=nodes[e.a],[x2,y2]=nodes[e.b];
+    const k=eKey(e.a,e.b), m=edgeMetrics[k]||{};
+    const st=!e.up?"down":(m.status||"up");
+    const line=el("line",{x1,y1,x2,y2,class:"edge "+st});
     svg.appendChild(line);
-
-    // Invisible hit-area
-    const hit = document.createElementNS(NS, "line");
-    hit.setAttribute("x1",x1);hit.setAttribute("y1",y1);
-    hit.setAttribute("x2",x2);hit.setAttribute("y2",y2);
-    hit.setAttribute("class","edge-hit");
-    hit.addEventListener("click", ev => { ev.stopPropagation(); toggleEdge(e); });
+    const hit=el("line",{x1,y1,x2,y2,class:"edge-hit"});
+    hit.addEventListener("click",ev=>{ev.stopPropagation();toggleEdge(e);});
     svg.appendChild(hit);
-
-    // Weight label
-    const wl = document.createElementNS(NS, "text");
-    wl.setAttribute("x",(x1+x2)/2);wl.setAttribute("y",(y1+y2)/2-7);
-    wl.setAttribute("class","wlabel");
-    wl.textContent = `w${e.w}`;
-    svg.appendChild(wl);
-
-    // Delay/BW sub-label
-    const ml = document.createElementNS(NS, "text");
-    ml.setAttribute("x",(x1+x2)/2);ml.setAttribute("y",(y1+y2)/2+9);
-    ml.setAttribute("class","mlabel");
-    ml.textContent = m.delay !== undefined ? `${(+m.delay).toFixed(1)}ms ${m.bandwidth||100}M` : "";
-    svg.appendChild(ml);
+    svg.appendChild(el("text",{x:(x1+x2)/2,y:(y1+y2)/2-7,class:"wlabel"},`w${e.w}`));
+    svg.appendChild(el("text",{x:(x1+x2)/2,y:(y1+y2)/2+8,class:"mlabel"},
+      m.delay!==undefined?`${(+m.delay).toFixed(1)}ms ${m.bandwidth||100}M`:""));
   });
-
-  Object.keys(nodes).forEach(id => {
-    const [x,y] = nodes[id];
-    const c = document.createElementNS(NS, "circle");
-    c.setAttribute("cx",x);c.setAttribute("cy",y);c.setAttribute("r",20);
-    c.setAttribute("class","node"+(id===selected?" sel":""));
-    c.addEventListener("click", ev => { ev.stopPropagation(); clickNode(id); });
+  Object.keys(nodes).forEach(id=>{
+    const [x,y]=nodes[id];
+    const c=el("circle",{cx:x,cy:y,r:20,class:"node"+(id===selected?" sel":"")});
+    c.addEventListener("click",ev=>{ev.stopPropagation();clickNode(id);});
     svg.appendChild(c);
-    const t = document.createElementNS(NS, "text");
-    t.setAttribute("x",x);t.setAttribute("y",y);
-    t.setAttribute("class","node-label");t.textContent=id;
-    svg.appendChild(t);
+    svg.appendChild(el("text",{x,y,class:"node-label"},id));
   });
-
   renderLinks();
 }
 
-// ═══════════════════════════════════════════════════════════════
+function el(tag,attrs={},text=""){
+  const e=document.createElementNS(NS,tag);
+  for(const[k,v] of Object.entries(attrs)) e.setAttribute(k,v);
+  if(text) e.textContent=text;
+  return e;
+}
+
+// ═══════════════════════════════════════════
 //  Metrics table
-// ═══════════════════════════════════════════════════════════════
-function renderMetricsTable() {
-  const tbody = document.getElementById("metrics-body");
-  if (!edges.length) {
-    tbody.innerHTML = '<tr><td colspan="11" class="empty" style="padding:10px;">No edges yet.</td></tr>';
-    return;
+// ═══════════════════════════════════════════
+function renderMetrics(){
+  const tb=document.getElementById("metrics-body");
+  if(!edges.length){
+    tb.innerHTML='<tr><td colspan="11" class="empty" style="padding:8px;">No edges.</td></tr>';return;
   }
-  tbody.innerHTML = "";
-
-  edges.forEach(e => {
-    const k = edgeKey(e.a, e.b);
-    if (!edgeMetrics[k]) edgeMetrics[k] = defaultMetrics(e.w);
-    const m = edgeMetrics[k];
-
-    const tr = document.createElement("tr");
-
-    // Link name
-    td(tr, `${e.a}↔${e.b}`);
-
-    // Editable fields
-    ["weight","bandwidth","delay","jitter","speed","loss","mtu"].forEach(field => {
-      const cell = document.createElement("td");
-      const inp = document.createElement("input");
-      inp.type  = "number";
-      inp.value = m[field];
-      inp.min   = field === "loss" ? 0 : 1;
-      inp.max   = field === "loss" ? 100 : (field === "mtu" ? 9000 : 100000);
-      inp.step  = ["delay","jitter","loss"].includes(field) ? 0.1 : 1;
-      inp.addEventListener("change", () => {
-        m[field] = parseFloat(inp.value);
-        e.w = m.weight;          // keep edge.w in sync for legacy display
-        updateCostCell(tr, m);
-        draw();
-        if (isSimulated) runSimulation(); else clearConn();
+  tb.innerHTML="";
+  edges.forEach(e=>{
+    const k=eKey(e.a,e.b);
+    if(!edgeMetrics[k]) edgeMetrics[k]=defM(e.w);
+    const m=edgeMetrics[k];
+    const tr=document.createElement("tr");
+    td(tr,`${e.a}↔${e.b}`);
+    ["weight","bandwidth","delay","jitter","speed","loss","mtu"].forEach(f=>{
+      const cell=document.createElement("td");
+      const inp=document.createElement("input");
+      inp.type="number"; inp.value=m[f];
+      inp.min=f==="loss"?0:1; inp.step=["delay","jitter","loss"].includes(f)?.1:1;
+      inp.addEventListener("change",()=>{
+        m[f]=parseFloat(inp.value); e.w=m.weight;
+        refreshCost(tr,m); draw();
+        if(isSimulated) runSim(); else clearConn();
       });
-      cell.appendChild(inp);
-      tr.appendChild(cell);
+      cell.appendChild(inp); tr.appendChild(cell);
     });
-
-    // Status dropdown
-    const stCell = document.createElement("td");
-    const sel = document.createElement("select");
-    ["up","degraded","down"].forEach(v => {
-      const o = document.createElement("option");
-      o.value = v; o.textContent = v;
-      if (v === m.status) o.selected = true;
+    const sc=document.createElement("td");
+    const sel=document.createElement("select");
+    ["up","degraded","down"].forEach(v=>{
+      const o=document.createElement("option");
+      o.value=v;o.textContent=v;if(v===m.status)o.selected=true;
       sel.appendChild(o);
     });
-    sel.addEventListener("change", () => {
-      m.status = sel.value;
-      // Also keep the edge.up flag consistent
-      e.up = (m.status !== "down");
-      updateCostCell(tr, m);
-      draw(); renderLinks();
-      if (isSimulated) runSimulation(); else clearConn();
+    sel.addEventListener("change",()=>{
+      m.status=sel.value; e.up=(m.status!=="down");
+      refreshCost(tr,m); draw(); renderLinks();
+      if(isSimulated) runSim(); else clearConn();
     });
-    stCell.appendChild(sel);
-    tr.appendChild(stCell);
-
-    // Composite cost (read-only)
-    const costCell = document.createElement("td");
-    costCell.dataset.cost = "1";
-    costCell.style.fontFamily = "monospace";
-    const c = compositeCost(m);
-    costCell.textContent = isFinite(c) ? c.toFixed(2) : "∞";
-    costCell.style.color = isFinite(c) ? (c < 5 ? "#2e7d32" : c < 15 ? "#f57c00" : "#c62828") : "#c62828";
-    tr.appendChild(costCell);
-
-    // Apply button
-    const btnCell = document.createElement("td");
-    const btn = document.createElement("button");
-    btn.textContent = "Apply";
-    btn.style.cssText = "padding:3px 9px;font-size:11px;";
-    btn.addEventListener("click", () => pushEdgeMetrics(e.a, e.b));
-    btnCell.appendChild(btn);
-    tr.appendChild(btnCell);
-
-    tbody.appendChild(tr);
+    sc.appendChild(sel); tr.appendChild(sc);
+    const cc=document.createElement("td");
+    cc.dataset.cost="1"; cc.style.fontFamily="monospace";
+    const cv=cost(m);
+    cc.textContent=isFinite(cv)?cv.toFixed(2):"∞";
+    cc.style.color=isFinite(cv)?(cv<5?"#2e7d32":cv<15?"#f57c00":"#c62828"):"#c62828";
+    tr.appendChild(cc);
+    const bc=document.createElement("td");
+    const btn=document.createElement("button");
+    btn.textContent="Apply"; btn.style.cssText="padding:2px 8px;font-size:11px;";
+    btn.addEventListener("click",()=>pushMetrics(e.a,e.b));
+    bc.appendChild(btn); tr.appendChild(bc);
+    tb.appendChild(tr);
   });
 }
 
-function td(tr, text) {
-  const c = document.createElement("td");
-  c.textContent = text;
-  tr.appendChild(c);
-  return c;
+function td(tr,text){
+  const c=document.createElement("td");c.textContent=text;tr.appendChild(c);
+}
+function refreshCost(tr,m){
+  const c=tr.querySelector("[data-cost]");if(!c)return;
+  const v=cost(m);
+  c.textContent=isFinite(v)?v.toFixed(2):"∞";
+  c.style.color=isFinite(v)?(v<5?"#2e7d32":v<15?"#f57c00":"#c62828"):"#c62828";
 }
 
-function updateCostCell(tr, m) {
-  const cell = tr.querySelector("[data-cost]");
-  if (!cell) return;
-  const c = compositeCost(m);
-  cell.textContent = isFinite(c) ? c.toFixed(2) : "∞";
-  cell.style.color = isFinite(c) ? (c < 5 ? "#2e7d32" : c < 15 ? "#f57c00" : "#c62828") : "#c62828";
+async function pushMetrics(a,b){
+  const k=eKey(a,b),m=edgeMetrics[k];if(!m)return;
+  try{
+    const r=await fetch("/api/edge/update",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({a,b,...m})});
+    const d=await r.json();
+    protoLog(`Metrics pushed ${a}↔${b} cost=${cost(d.metrics||m).toFixed(2)}`,"info");
+  }catch(err){protoLog(`Push failed ${a}↔${b}: ${err.message}`,"info");}
 }
 
-// Push a single edge's updated metrics to the orchestrator
-async function pushEdgeMetrics(a, b) {
-  const k = edgeKey(a, b);
-  const m = edgeMetrics[k];
-  if (!m) return;
-  try {
-    const r = await fetch("/api/edge/update", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ a, b, ...m })
-    });
-    const data = await r.json();
-    protoLog(`Metrics pushed ${a}↔${b}: cost=${compositeCost(data.metrics||m).toFixed(2)}`, "ae");
-  } catch(err) {
-    protoLog(`Push failed for ${a}↔${b}: ${err.message}`, "flood");
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  renderLinks (edge status sidebar)
-// ═══════════════════════════════════════════════════════════════
-function renderLinks() {
-  const el = document.getElementById("links");
-  if (!edges.length) { el.innerHTML="<div class='empty'>No links yet.</div>"; return; }
-  el.innerHTML = "";
-  edges.forEach(e => {
-    const k = edgeKey(e.a, e.b);
-    const m = edgeMetrics[k] || {};
-    const st = !e.up ? "down" : (m.status || "up");
-    const row = document.createElement("div"); row.className="row";
-    const name = document.createElement("span");
-    name.textContent = `${e.a} – ${e.b}`;
-    const right = document.createElement("span");
-    right.className = "right";
-
-    const winp = document.createElement("input");
-    winp.type="number";winp.min="1";winp.value=e.w;
-    winp.addEventListener("change",()=>{
-      const v=Math.max(1,+winp.value||1);
-      e.w=v;
-      if(edgeMetrics[k]) edgeMetrics[k].weight=v;
-      draw(); renderMetricsTable();
-      if(isSimulated) runSimulation(); else clearConn();
-    });
-
-    const stSpan = document.createElement("span");
-    stSpan.className = st; stSpan.textContent = st;
-    right.appendChild(winp); right.appendChild(stSpan);
-    row.appendChild(name); row.appendChild(right);
-    el.appendChild(row);
-  });
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  Simulate
-// ═══════════════════════════════════════════════════════════════
-async function runSimulation() {
-  const el = document.getElementById("conn");
-  const payload = {
-    nodes: Object.keys(nodes),
-    edges: edges.map(e => {
-      const k = edgeKey(e.a, e.b);
-      const m = edgeMetrics[k] || {};
-      return { a: e.a, b: e.b, w: e.w,
-               up: e.up && m.status !== "down", ...m };
-    })
-  };
-  if (payload.nodes.length < 2) {
-    el.innerHTML = "<div class='empty'>Add at least two nodes.</div>"; return;
-  }
-  try {
-    const r = await fetch("/api/simulate", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify(payload)
-    });
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    const data = await r.json();
-
-    // Merge any metric data the server echoed back
-    if (data.pairs) {
-      data.pairs.forEach(p => {
-        const k = edgeKey(p.a, p.b);
-        if (p.metrics) edgeMetrics[k] = { ...defaultMetrics(), ...p.metrics };
-      });
-    }
-    renderConn(data.pairs || []);
-    renderMetricsTable();
-    isSimulated = true;
-  } catch(err) {
-    el.innerHTML = "<div class='empty'>Simulate failed — is the server running?</div>";
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  Connectivity
-// ═══════════════════════════════════════════════════════════════
-function statusText(p) {
-  if (p.direct)    return [`direct · cost ${p.weight}`, "up"];
-  if (p.reachable) return [`via ${(p.path||[]).slice(1,-1).join(", ")} · cost ${p.weight}`, "via"];
-  return ["unreachable", "down"];
-}
-
-function renderConn(pairs) {
-  const el = document.getElementById("conn");
-  if (!pairs.length) { el.innerHTML="<div class='empty'>—</div>"; return; }
+// ═══════════════════════════════════════════
+//  Edge list sidebar
+// ═══════════════════════════════════════════
+function renderLinks(){
+  const el=document.getElementById("links");
+  if(!edges.length){el.innerHTML="<div class='empty'>No links.</div>";return;}
   el.innerHTML="";
-  pairs.forEach(p => {
-    const [text, cls] = statusText(p);
-    const row = document.createElement("div"); row.className="row";
-    const name = document.createElement("span");
-    name.textContent = `${p.a} ↔ ${p.b}`;
-    const val = document.createElement("span"); val.className=cls; val.textContent=text;
-    row.appendChild(name); row.appendChild(val);
-    el.appendChild(row);
+  edges.forEach(e=>{
+    const k=eKey(e.a,e.b),m=edgeMetrics[k]||{};
+    const st=!e.up?"down":(m.status||"up");
+    const row=document.createElement("div");row.className="srow";
+    const name=document.createElement("span");name.textContent=`${e.a}–${e.b}`;
+    const right=document.createElement("span");right.style.display="flex";right.style.gap="7px";
+    const wi=document.createElement("input");wi.type="number";wi.min=1;wi.value=e.w;wi.style.width="44px";
+    wi.addEventListener("change",()=>{
+      const v=Math.max(1,+wi.value||1);e.w=v;
+      if(edgeMetrics[k])edgeMetrics[k].weight=v;
+      draw();renderMetrics();if(isSimulated)runSim();else clearConn();
+    });
+    const sp=document.createElement("span");sp.className=st;sp.textContent=st;
+    right.appendChild(wi);right.appendChild(sp);
+    row.appendChild(name);row.appendChild(right);el.appendChild(row);
   });
 }
 
-function clearConn() {
-  isSimulated = false;
-  document.getElementById("conn").innerHTML =
+// ═══════════════════════════════════════════
+//  Simulate
+// ═══════════════════════════════════════════
+async function runSim(){
+  const el=document.getElementById("conn");
+  const payload={nodes:Object.keys(nodes),
+    edges:edges.map(e=>{
+      const k=eKey(e.a,e.b),m=edgeMetrics[k]||{};
+      return{a:e.a,b:e.b,w:e.w,up:e.up&&m.status!=="down",...m};
+    })};
+  if(payload.nodes.length<2){el.innerHTML="<div class='empty'>Need ≥2 nodes.</div>";return;}
+  try{
+    const r=await fetch("/api/simulate",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const data=await r.json();
+    if(data.pairs) data.pairs.forEach(p=>{
+      const k=eKey(p.a,p.b);
+      if(p.metrics) edgeMetrics[k]={...defM(),...p.metrics};
+    });
+    renderConn(data.pairs||[]);
+    renderMetrics(); isSimulated=true;
+  }catch(err){
+    el.innerHTML="<div class='empty'>Simulate failed — server running?</div>";
+  }
+}
+
+// ═══════════════════════════════════════════
+//  Connectivity
+// ═══════════════════════════════════════════
+function renderConn(pairs){
+  const el=document.getElementById("conn");
+  if(!pairs.length){el.innerHTML="<div class='empty'>—</div>";return;}
+  el.innerHTML="";
+  pairs.forEach(p=>{
+    const row=document.createElement("div");row.className="srow";
+    const name=document.createElement("span");name.textContent=`${p.a}↔${p.b}`;
+    const val=document.createElement("span");
+    if(p.direct){val.className="up";val.textContent=`direct · cost ${p.weight}`;}
+    else if(p.reachable){val.className="via";val.textContent=`via ${(p.path||[]).slice(1,-1).join(",")} · cost ${p.weight}`;}
+    else{val.className="down";val.textContent="unreachable";}
+    row.appendChild(name);row.appendChild(val);el.appendChild(row);
+  });
+}
+
+function clearConn(){
+  isSimulated=false;
+  document.getElementById("conn").innerHTML=
     "<div class='empty'>Graph changed — run Simulate.</div>";
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Message sending
-// ═══════════════════════════════════════════════════════════════
-document.getElementById("send-msg").addEventListener("click", async () => {
-  const src = document.getElementById("msg-src").value.trim().toUpperCase();
-  const dst = document.getElementById("msg-dst").value.trim().toUpperCase();
-  const el  = document.getElementById("msg-status");
-  if (!src||!dst) { el.textContent="Enter Src and Dst."; return; }
-  document.getElementById("traffic-log").innerHTML="";
-  try {
-    const r = await fetch("/api/send_message",{
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({src,dst})
-    });
-    const data = await r.json();
-    if (data.status==="dispatched") {
-      el.textContent = `Sent! Path: ${data.path.join(" → ")} · cost ${data.cost}`;
-      protoLog(`Routed ${src}→${dst}: ${data.path.join("→")} cost=${data.cost}`, "route");
-    } else {
-      el.textContent = `Error: ${data.status}`;
-    }
-  } catch(err) { el.textContent="Network error. Is the server running?"; }
-});
-
-// ═══════════════════════════════════════════════════════════════
-//  Flooding
-// ═══════════════════════════════════════════════════════════════
-document.getElementById("btn-flood").addEventListener("click", async () => {
-  const origin  = document.getElementById("fl-origin").value.trim().toUpperCase();
-  const payload = document.getElementById("fl-payload").value.trim() || "broadcast";
-  if (!origin) { alert("Enter a flood origin node ID."); return; }
-  try {
-    const r = await fetch("/api/flood", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ origin, payload })
-    });
-    const data = await r.json();
-    protoLog(`Flood from ${origin}: status=${data.status} id=${data.msg_id||"?"}`, "flood");
-  } catch(err) {
-    protoLog(`Flood error: ${err.message}`, "flood");
-  }
-});
-
-// ═══════════════════════════════════════════════════════════════
-//  Transport log helper
-// ═══════════════════════════════════════════════════════════════
-function protoLog(msg, type="ae") {
-  const el = document.getElementById("proto-log");
-  if (el.querySelector(".empty")) el.innerHTML="";
-  const d = document.createElement("div");
-  d.className = type;
-  const t = new Date().toLocaleTimeString("en",{hour12:false});
-  d.textContent = `[${t}] ${msg}`;
-  el.appendChild(d);
-  el.scrollTop = el.scrollHeight;
+// ═══════════════════════════════════════════
+//  Node status cards (heartbeat + ACK + gossip)
+// ═══════════════════════════════════════════
+async function refreshNodeStatus(){
+  if(!isSimulated) return;
+  try{
+    const r=await fetch("/api/node_status");
+    const data=await r.json();
+    const gc=await (await fetch("/api/gossip_status")).json();
+    const ac=await (await fetch("/api/ack_status")).json();
+    renderNodeCards(data,gc,ac);
+  }catch(_){}
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Traffic polling
-// ═══════════════════════════════════════════════════════════════
-setInterval(async () => {
-  if (Object.keys(nodes).length < 1) return;
-  try {
-    const r = await fetch("/api/traffic");
-    const traffic = await r.json();
-    let html = "";
-    for (const [nid, msgs] of Object.entries(traffic)) {
-      msgs.forEach(m => {
-        html += `<div><b>${nid}:</b> ${m.action} <span style="color:#9aa3af">(${(m.id||"").slice(0,8)})</span></div>`;
-      });
-    }
-    const logEl = document.getElementById("traffic-log");
-    if (html) logEl.innerHTML = html;
-  } catch(_) {}
-}, 900);
+function renderNodeCards(status,gossip,acks){
+  const el=document.getElementById("node-cards");
+  const ids=Object.keys(status);
+  if(!ids.length){el.innerHTML="<div class='empty'>No data.</div>";return;}
+  el.innerHTML="";
+  ids.forEach(id=>{
+    const s=status[id];
+    const g=gossip[id]||{};
+    const a=acks[id]||[];
+    const card=document.createElement("div");card.className="ncard";
 
-// ═══════════════════════════════════════════════════════════════
-//  Buttons
-// ═══════════════════════════════════════════════════════════════
-document.getElementById("btn-sim").addEventListener("click", runSimulation);
-document.getElementById("btn-reset").addEventListener("click", async () => {
-  try {
-    await fetch("/api/reset", { method: "POST", headers: {"Content-Type":"application/json"}, body: "{}" });
-  } catch(_) {}
-  location.reload();
+    const reachable=s.reachable!==false;
+    card.innerHTML=`<h4>${id} <span class="${reachable?'up':'down'}">${reachable?"●":"✕"}</span></h4>`;
+
+    // Neighbor heartbeat statuses
+    const nbrs=s.neighbors||{};
+    Object.entries(nbrs).forEach(([peer,info])=>{
+      const st=info.status||"?";
+      const miss=info._miss_count||0;
+      const cls=st==="up"?"up":st==="degraded"?"degraded":"down";
+      const missStr=miss>0?`<span class="miss"> (${miss} miss)</span>`:"";
+      card.innerHTML+=`<div>→${peer}: <span class="${cls}">${st}</span>${missStr}</div>`;
+    });
+
+    // Gossip store
+    card.innerHTML+=`<div style="margin-top:4px;color:#5a6472;">
+      store: ${g.store_key_count||0} key(s)</div>`;
+
+    // ACK pending
+    if(a.length){
+      card.innerHTML+=`<div style="color:#6a1b9a;">ACK pending: ${a.length}</div>`;
+    }
+
+    // VC
+    const vc=s.vc||{};
+    const vcStr=Object.entries(vc).map(([k,v])=>`${k}:${v}`).join(" ");
+    card.innerHTML+=`<div style="margin-top:3px;font-size:9px;color:#9aa3af;">vc [${vcStr}]</div>`;
+
+    el.appendChild(card);
+  });
+}
+
+// ═══════════════════════════════════════════
+//  Protocol log
+// ═══════════════════════════════════════════
+function protoLog(msg,type="info"){
+  const el=document.getElementById("proto-log");
+  if(el.querySelector(".empty")) el.innerHTML="";
+  const d=document.createElement("div");d.className=type;
+  const t=new Date().toLocaleTimeString("en",{hour12:false});
+  d.textContent=`[${t}] ${msg}`;
+  el.appendChild(d); el.scrollTop=el.scrollHeight;
+}
+
+// ═══════════════════════════════════════════
+//  Send message
+// ═══════════════════════════════════════════
+document.getElementById("send-msg").addEventListener("click",async()=>{
+  const src=document.getElementById("msg-src").value.trim().toUpperCase();
+  const dst=document.getElementById("msg-dst").value.trim().toUpperCase();
+  const el=document.getElementById("msg-status");
+  if(!src||!dst){el.textContent="Enter Src and Dst.";return;}
+  document.getElementById("traffic-log").innerHTML="";
+  try{
+    const r=await fetch("/api/send_message",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({src,dst})});
+    const data=await r.json();
+    if(data.status==="dispatched"){
+      el.textContent=`Sent! Path: ${data.path.join("→")} · cost ${data.cost} · ACK tracking active`;
+      protoLog(`Route ${src}→${dst}: ${data.path.join("→")} cost=${data.cost}`,"route");
+    } else {
+      el.textContent=`Error: ${data.status}`;
+    }
+  }catch(err){el.textContent="Network error.";}
 });
 
-// ── initial draw ──
-draw();
-renderMetricsTable();
+// ═══════════════════════════════════════════
+//  Flood
+// ═══════════════════════════════════════════
+document.getElementById("btn-flood").addEventListener("click",async()=>{
+  const origin=document.getElementById("fl-origin").value.trim().toUpperCase();
+  const payload=document.getElementById("fl-payload").value.trim()||"broadcast";
+  if(!origin){alert("Enter flood origin node.");return;}
+  try{
+    const r=await fetch("/api/flood",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({origin,payload})});
+    const d=await r.json();
+    protoLog(`Flood from ${origin}: ${d.status} id=${d.msg_id||"?"}`,"flood");
+  }catch(err){protoLog(`Flood error: ${err.message}`,"flood");}
+});
+
+// ═══════════════════════════════════════════
+//  HELLO
+// ═══════════════════════════════════════════
+document.getElementById("btn-hello").addEventListener("click",async()=>{
+  const id=document.getElementById("hello-node").value.trim().toUpperCase();
+  if(!id){alert("Enter node ID for HELLO.");return;}
+  try{
+    const r=await fetch("/api/hello",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({id})});
+    const d=await r.json();
+    protoLog(`HELLO triggered from ${id}: ${d.status}`,"hello");
+  }catch(err){protoLog(`HELLO error: ${err.message}`,"hello");}
+});
+
+// ═══════════════════════════════════════════
+//  Polling loops
+// ═══════════════════════════════════════════
+
+// Traffic log
+setInterval(async()=>{
+  if(Object.keys(nodes).length<1) return;
+  try{
+    const r=await fetch("/api/traffic");
+    const traffic=await r.json();
+    let html="";
+    for(const[nid,msgs] of Object.entries(traffic)){
+      msgs.forEach(m=>{
+        const cls=m.action.startsWith("heartbeat")?"hb":
+                  m.action.startsWith("ack")?"ack":
+                  m.action.startsWith("hello")?"hello":
+                  m.action.startsWith("gossip")?"gossip":"info";
+        html+=`<div class="${cls}"><b>${nid}:</b> ${m.action} <span style="color:#9aa3af">(${(m.id||"").slice(0,8)})</span></div>`;
+      });
+    }
+    const logEl=document.getElementById("traffic-log");
+    if(html) logEl.innerHTML=html;
+  }catch(_){}
+},900);
+
+// Node status cards — refresh every 4 s
+setInterval(refreshNodeStatus, 4000);
+
+// ═══════════════════════════════════════════
+//  Buttons
+// ═══════════════════════════════════════════
+document.getElementById("btn-sim").addEventListener("click", runSim);
+document.getElementById("btn-reset").addEventListener("click",()=>location.reload());
+
+draw(); renderMetrics();
 </script>
 </body>
 </html>
